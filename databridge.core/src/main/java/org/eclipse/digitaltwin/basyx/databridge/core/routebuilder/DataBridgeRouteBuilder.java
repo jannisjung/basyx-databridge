@@ -63,8 +63,7 @@ public class DataBridgeRouteBuilder extends RouteBuilder {
 		long incrementalId = 1;
 		for (RouteConfiguration route : routesConfiguration.getRoutes()) {
 			if (Strings.isNullOrEmpty(route.getRouteId())) {
-				route.setRouteId(ROUTE_ID_PREFIX + incrementalId);
-				incrementalId++;
+				route.setRouteId(ROUTE_ID_PREFIX + incrementalId++);
 			}
 		}
 

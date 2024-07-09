@@ -24,6 +24,7 @@
 		<module>databridge.camel-timer</module>
 		<module>databridge.examples</module>
 		<module>databridge.component</module>
+		<module>databridge.camel-sql</module>
 	</modules>
 
 	<licenses>

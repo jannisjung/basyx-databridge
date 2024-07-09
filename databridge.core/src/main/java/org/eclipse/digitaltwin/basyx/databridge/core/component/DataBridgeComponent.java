@@ -49,17 +49,14 @@ import org.slf4j.LoggerFactory;
  * Core DataBridge component which can run the updater if routes configuration is
  * provided
  *
- * @author haque, fischer, danish
+ * @author haque, fischer, danish, jungjan
  *
  */
 public class DataBridgeComponent implements IComponent {
 	private static Logger logger = LoggerFactory.getLogger(DataBridgeComponent.class);
 	private DataBridgeRouteBuilder orchestrator;
-
-	protected CamelContext camelContext;
-
+	private static CamelContext camelContext = new DefaultCamelContext(); 
 	public DataBridgeComponent(RoutesConfiguration configuration) {
-		camelContext = new DefaultCamelContext();
 		orchestrator = new DataBridgeRouteBuilder(configuration, getRouteCreatorFactoryMapDefault());
 	}
 
@@ -70,6 +67,11 @@ public class DataBridgeComponent implements IComponent {
 		defaultRouteCreatorFactoryMap.put(RequestRouteConfiguration.ROUTE_TRIGGER, new RequestRouteCreatorFactory());
 
 		return defaultRouteCreatorFactoryMap;
+	}
+	
+	public static CamelContext camelContext() {
+		// Hack to manipulate camelContet from SqlConsumerConfiguration class
+		return camelContext;
 	}
 
 	/**

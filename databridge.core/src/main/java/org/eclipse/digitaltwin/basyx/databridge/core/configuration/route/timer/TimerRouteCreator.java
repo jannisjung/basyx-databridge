@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.MulticastDefinition;
 import org.apache.camel.model.RouteDefinition;
@@ -37,11 +38,13 @@ import org.eclipse.digitaltwin.basyx.databridge.core.configuration.route.core.Ab
 import org.eclipse.digitaltwin.basyx.databridge.core.configuration.route.core.RouteConfiguration;
 import org.eclipse.digitaltwin.basyx.databridge.core.configuration.route.core.RouteCreatorHelper;
 import org.eclipse.digitaltwin.basyx.databridge.core.configuration.route.core.RoutesConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonObject;
+
+/**
+ * @author BaSyx authors, jungjan
+ */
 public class TimerRouteCreator extends AbstractRouteCreator {
-	private static Logger logger = LoggerFactory.getLogger(TimerRouteCreator.class);
 
 	private static final Long TIMEOUT = 5000L;
 
@@ -51,7 +54,8 @@ public class TimerRouteCreator extends AbstractRouteCreator {
 
 	@Override
 	protected void configureRoute(RouteConfiguration routeConfig, String dataSourceEndpoint, String[] dataSinkEndpoints, String[] dataTransformerEndpoints, String routeId) {
-		RouteDefinition routeDefinition = startRouteDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId);
+		RouteDefinition routeDefinition = isSqlEndpoint(dataSourceEndpoint) ? startSqlRoutDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId)
+				: startRouteDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId);
 
 		if (!(dataTransformerEndpoints == null || dataTransformerEndpoints.length == 0)) {
 			routeDefinition.to(dataTransformerEndpoints)
@@ -62,16 +66,43 @@ public class TimerRouteCreator extends AbstractRouteCreator {
 				.to("log:" + routeId);
 	}
 
+	private RouteDefinition startSqlRoutDefinition(TimerRouteConfiguration routeConfig, String dataSourceEndpoint, String routeId) {
+		String timerEndpoint = RouteCreatorHelper.getDataSourceEndpoint(getRoutesConfiguration(), routeConfig.getTimerName());
+		return getRouteBuilder().from(timerEndpoint)
+				.to(dataSourceEndpoint)
+				.process(this::sqlResultToJson)
+				.routeId(routeId)
+				.to("log:" + routeId);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void sqlResultToJson(Exchange exchange) {
+		List<Map<String, Object>> rows = exchange.getIn()
+				.getBody(List.class);
+		
+		if (!rows.isEmpty()) {
+			Map<String, Object> latestRow = rows.get(0);
+			JsonObject jsonObject = new JsonObject();
+			latestRow.forEach((key, value) -> jsonObject.addProperty(key, value.toString()));
+			exchange.getIn().setBody(jsonObject.toString());
+		}
+	}
+
+	private boolean isSqlEndpoint(String dataSourceEndpoint) {
+		return dataSourceEndpoint.startsWith("sql");
+	}
+
 	@Override
 	protected void configureRoute(RouteConfiguration routeConfig, String dataSourceEndpoint, String[] dataSinkEndpoints, String[] dataTransformerEndpoints, Map<String, String[]> dataSinkMapping, String routeId) {
-		MulticastDefinition routeDefinition = startRouteDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId).multicast();
+		MulticastDefinition routeDefinition = isSqlEndpoint(dataSourceEndpoint) ? startSqlRoutDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId).multicast()
+				: startRouteDefinition((TimerRouteConfiguration) routeConfig, dataSourceEndpoint, routeId).multicast();
 		dataSinkMapping.forEach((dataSink, dataTransformers) -> routeDefinition.pipeline()
 				.to(dataTransformers)
 				.to(dataSink)
 				.to("log:" + routeId));
 
 		getUnmappedEndpoints(dataSinkEndpoints, dataSinkMapping).forEach(dataSink -> routeDefinition.to(dataSink)
-				.to("log: " + routeId));
+				.to("log:" + routeId));
 
 		routeDefinition.end();
 	}

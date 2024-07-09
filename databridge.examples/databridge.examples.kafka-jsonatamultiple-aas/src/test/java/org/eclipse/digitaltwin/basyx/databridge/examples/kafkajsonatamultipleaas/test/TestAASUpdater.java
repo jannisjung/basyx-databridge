@@ -106,7 +106,7 @@ public class TestAASUpdater {
 		updater.stopComponent();
 		aasServer.stopComponent();
 		zookeeper.close();
-		aasServer.stopComponent();
+		kafkaServer.shutdown();
 		clearLogs();
 	}
 
